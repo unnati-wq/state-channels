@@ -15,6 +15,7 @@ import {
   useScaffoldEventHistory,
   useScaffoldEventSubscriber,
 } from "~~/hooks/scaffold-eth";
+import { ethers } from "ethers";
 
 export type Voucher = { updatedBalance: bigint; signature: `0x${string}}` };
 
@@ -127,8 +128,18 @@ const Streamer: NextPage = () => {
        *  and then use verifyMessage() to confirm that voucher signer was
        *  `clientAddress`. (If it wasn't, log some error message and return).
        */
+      const packed = ethers.utils.solidityPack(["uint256"], [updatedBalance]);
+      const hashed = ethers.utils.keccak256(packed);
+      const arrayfied = ethers.utils.arrayify(hashed);
+      const verifiedMessage = ethers.utils.verifyMessage(arrayfied, data.signature);
+      if(verifiedMessage != clientAddress){
+        console.error("Invalid Signature");
+        return;
+      }
+      
       const existingVoucher = vouchers[clientAddress];
 
+      
       // update our stored voucher if this new one is more valuable
       if (existingVoucher === undefined || updatedBalance < existingVoucher.updatedBalance) {
         setVouchers(vouchers => ({ ...vouchers, [clientAddress]: { ...data, updatedBalance } }));
@@ -212,15 +223,15 @@ const Streamer: NextPage = () => {
   });
 
   // Checkpoint 5
-  // const { writeAsync: challengeChannel } = useScaffoldContractWrite({
-  //   contractName: "Streamer",
-  //   functionName: "challengeChannel",
-  // });
+   const { writeAsync: challengeChannel } = useScaffoldContractWrite({
+     contractName: "Streamer",
+     functionName: "challengeChannel",
+   });
 
-  // const { writeAsync: defundChannel } = useScaffoldContractWrite({
-  //   contractName: "Streamer",
-  //   functionName: "defundChannel",
-  // });
+   const { writeAsync: defundChannel } = useScaffoldContractWrite({
+     contractName: "Streamer",
+     functionName: "defundChannel",
+   });
 
   const [recievedWisdom, setReceivedWisdom] = useState("");
 
@@ -346,13 +357,13 @@ const Streamer: NextPage = () => {
                     </div>
 
                     {/* Checkpoint 4: */}
-                    {/* <CashOutVoucherButton
+                    { <CashOutVoucherButton
                       key={clientAddress}
                       clientAddress={clientAddress}
                       challenged={challenged}
                       closed={closed}
                       voucher={vouchers[clientAddress]}
-                    /> */}
+                    /> }
                   </div>
                 ))}
               </div>
@@ -389,7 +400,7 @@ const Streamer: NextPage = () => {
                   </div>
 
                   {/* Checkpoint 5: challenge & closure */}
-                  {/* <div className="flex flex-col items-center pb-6">
+                  { <div className="flex flex-col items-center pb-6">
                     <button
                       disabled={challenged.includes(userAddress)}
                       className="btn btn-primary"
@@ -427,7 +438,7 @@ const Streamer: NextPage = () => {
                     >
                       Close and withdraw funds
                     </button>
-                  </div> */}
+                  </div> }
                 </div>
               ) : userAddress && closed.includes(userAddress) ? (
                 <div className="text-lg">

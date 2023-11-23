@@ -22,6 +22,14 @@ contract Streamer is Ownable {
       - updates the balances mapping with the eth received in the function call
       - emits an Opened event
     */
+   require(msg.value > 0, "send some eth");
+   if(balances[msg.sender] != 0){
+    revert("channel already open");
+    
+   }
+    balances[msg.sender] = msg.value;
+    emit Opened(msg.sender, balances[msg.sender]);
+   
   }
 
   function timeLeft(address channel) public view returns (uint256) {
@@ -59,6 +67,23 @@ contract Streamer is Ownable {
           - adjust the channel balance, and pay the Guru(Contract owner). Get the owner address with the `owner()` function.
           - emit the Withdrawn event
     */
+   // Step 3: Recover the signer's address using ecrecover
+    address signer = ecrecover(prefixedHashed, voucher.sig.v, voucher.sig.r, voucher.sig.s);
+
+    // Step 4: Check if the signer has a running channel with sufficient balances
+    require(balances[signer] > voucher.updatedBalance, "Insufficient funds");
+
+    // Step 5: Calculate the payment when reducing balances to voucher.updatedBalance
+    uint256 payment = balances[signer] - voucher.updatedBalance;
+
+    // Step 6: Adjust the channel balance
+    balances[signer] = voucher.updatedBalance;
+
+    // Step 7: Pay the contract owner (Guru) and get the owner address with the 'owner()' function
+    payable(owner()).transfer(payment);
+
+    // Step 8: Emit the Withdrawn event
+    emit Withdrawn(signer, payment);
   }
 
   /*
@@ -69,6 +94,18 @@ contract Streamer is Ownable {
     - updates canCloseAt[msg.sender] to some future time
     - emits a Challenged event
   */
+ function challengeChannel() public {
+    // Step 1: Check that msg.sender has an open channel (You need to define how you identify an open channel)
+    require(balances[msg.sender] != 0, "No open channel found");
+
+    // Step 2: Set a future time for canCloseAt[msg.sender]
+    // This can be achieved by adding a predefined time duration to the current block timestamp.
+    // For example, to set it to 24 hours in the future:
+    canCloseAt[msg.sender] = block.timestamp + 60 seconds;
+
+    // Step 3: Emit the Challenged event
+    emit Challenged(msg.sender);
+}
 
   /*
     Checkpoint 5b: Close the channel
@@ -79,6 +116,21 @@ contract Streamer is Ownable {
     - sends the channel's remaining funds to msg.sender, and sets the balance to 0
     - emits the Closed event
   */
+ function defundChannel() public {
+    // Step 1: Check that msg.sender has a closing channel (You need to define how you identify a closing channel).
+    // Step 2: Check that the current time is later than the closing time.
+    require(canCloseAt[msg.sender] > 0 && canCloseAt[msg.sender] <= block.timestamp, "Channel not eligible for defunding");
+
+    // Step 3: Send the channel's remaining funds to msg.sender and set the balance to 0.
+    uint256 remainingFunds = balances[msg.sender];
+    require(remainingFunds > 0, "No funds to defund");
+    
+    balances[msg.sender] = 0;
+    payable(msg.sender).transfer(remainingFunds);
+
+    // Step 4: Emit the Closed event
+    emit Closed(msg.sender);
+}
 
   struct Voucher {
     uint256 updatedBalance;
